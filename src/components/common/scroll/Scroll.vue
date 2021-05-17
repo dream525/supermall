@@ -44,7 +44,7 @@ export default {
     // 3.监听 scroll 滚动的底部
     if (this.pullUpLoad) {
       this.scroll.on("pullingUp", () => {
-        this.$emit('pullingUp')
+        this.$emit("pullingUp");
       });
     }
   },
@@ -57,6 +57,9 @@ export default {
     },
     refresh() {
       this.scroll && this.scroll.refresh();
+    },
+    getScrollY() {
+      return this.scroll ? this.scroll.y : 0;
     },
   },
 };

@@ -3,6 +3,13 @@
     <nav-bar class="home-nav">
       <div slot="center">购物街</div>
     </nav-bar>
+    <tab-control
+      class="tab-control"
+      :titles="['流行', '新款', '精选']"
+      @tabClick="tabClick"
+      ref="tabControl1"
+      v-show="isTabFixed"
+    ></tab-control>
     <scroll
       class="content"
       ref="scroll"
@@ -11,13 +18,16 @@
       :pull-up-load="true"
       @pullingUp="loadMore"
     >
-      <home-swiper :banners="banners"></home-swiper>
+      <home-swiper
+        :banners="banners"
+        @swiperImageLoad="swiperImageLoad"
+      ></home-swiper>
       <recommend-view :recommends="recommends"></recommend-view>
       <feature-view></feature-view>
       <tab-control
-        class="tab-control"
         :titles="['流行', '新款', '精选']"
         @tabClick="tabClick"
+        ref="tabControl2"
       ></tab-control>
       <goods-list :goods="showGoods"></goods-list>
     </scroll>
@@ -30,7 +40,7 @@ import HomeSwiper from "./childrenComps/HomeSwiper";
 import RecommendView from "./childrenComps/RecommendView";
 import FeatureView from "./childrenComps/FeatureView";
 
-import NavBar from "components/common/navbar/Navbar";
+import NavBar from "components/common/navbar/NavBar";
 import TabControl from "components/content/tabControl/TabControl";
 import GoodsList from "components/content/goods/GoodsList";
 import Scroll from "components/common/scroll/Scroll";
@@ -81,6 +91,12 @@ export default {
       currentType: "pop",
       // 保存当前状态 backTop 是否显示
       isShowBackTop: false,
+      // tabControl 的 offsetTop
+      tabOffsetTop: 0,
+      // tabcontrol 是否吸顶
+      isTabFixed: false,
+      // 保存scroll 滚动的距离
+      saveY: 0,
     };
   },
   // 组件创建完成之后立即请求数据,将数据渲染到页面中
@@ -99,14 +115,28 @@ export default {
     this.$bus.$on("itemImageLoad", () => {
       refresh();
     });
+
+    // 获取 tabControl 的 offsetTop
+    // 所有的组件都有一个属性 : $el 用于获取组件中的元素的
+  },
+  activated() {
+    this.$refs.scroll.scrollTo(0, this.saveY, 0);
+    this.$refs.scroll.refresh();
+  },
+  deactivated() {
+    this.saveY = this.$refs.scroll.getScrollY();
   },
   methods: {
     /**
      * 事件监听相关方法
      */
+    // 监听轮播图是否加载完成,加载完成时获取 tabControl 的 offsetTop
+    swiperImageLoad() {
+      this.tabOffsetTop = this.$refs.tabControl2.$el.offsetTop;
+    },
     // 上拉加载更多,根据当前类型请求数据
     loadMore() {
-      this.getHomeGoods(this.currentType)
+      this.getHomeGoods(this.currentType);
     },
     // 点击 tabControl 切换当前显示的 goods 种类
     tabClick(index) {
@@ -120,14 +150,19 @@ export default {
         case 2:
           this.currentType = "sell";
       }
+      this.$refs.tabControl1.currentIndex = index;
+      this.$refs.tabControl2.currentIndex = index;
     },
     // 点击 backTop 回到顶部
     backClick() {
       this.$refs.scroll.scrollTo(0, 0, 500);
     },
-    // backTop 显示或隐藏的设置
+    // backTop 显示或隐藏的设置 与 tabControl 的吸顶效果
     contentScroll(position) {
+      // 判断 backTop 是否显示
       this.isShowBackTop = -position.y > 1000;
+      // 决定 tabControl 是否吸顶(position: fixed)
+      this.isTabFixed = -position.y > this.tabOffsetTop;
     },
 
     /**
@@ -148,7 +183,7 @@ export default {
         this.goods[type].page += 1;
 
         // 完成上拉加载更多
-        this.$refs.scroll.finishPullUp()
+        this.$refs.scroll.finishPullUp();
       });
     },
   },
@@ -157,7 +192,7 @@ export default {
 
 <style scoped>
 #home {
-  padding-top: 44px;
+  /* padding-top: 44px; */
   height: 100vh;
   position: relative;
 }
@@ -165,11 +200,13 @@ export default {
   background-color: var(--color-tint);
   color: #fff;
   /* width: 100%; */
-  position: fixed;
+
+  /* 在使用浏览器原生滚动时,为了让导航不跟随一起滚动 */
+  /* position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  z-index: 9;
+  z-index: 9; */
 }
 
 /* .tab-control {
@@ -185,6 +222,11 @@ export default {
   bottom: 49px;
   left: 0;
   right: 0;
+}
+
+.tab-control {
+  position: relative;
+  z-index: 9;
 }
 
 /* .content {
