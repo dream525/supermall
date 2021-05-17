@@ -37,6 +37,7 @@ import Scroll from "components/common/scroll/Scroll";
 import BackTop from "components/content/backTop/BackTop";
 
 import { getHomeMultidata, getHomeGoods } from "network/home";
+import { debounce } from "common/utils";
 
 export default {
   name: "Home",
@@ -57,8 +58,11 @@ export default {
   },
   data() {
     return {
+      // 轮播图数据
       banners: [],
+      // 推荐列表数据
       recommends: [],
+      // 商品数据,包含不同类型
       goods: {
         pop: {
           page: 0,
@@ -73,42 +77,38 @@ export default {
           list: [],
         },
       },
+      // 保存当前显示的 goods 类型
       currentType: "pop",
+      // 保存当前状态 backTop 是否显示
       isShowBackTop: false,
     };
   },
+  // 组件创建完成之后立即请求数据,将数据渲染到页面中
   created() {
-    // 1.请求多个数据
+    // 1.请求 轮播图 以及 推荐列表 的数据
     this.getHomeMultidata();
-    // 请求商品数据
+    // 2.请求商品数据
     this.getHomeGoods("pop");
     this.getHomeGoods("new");
     this.getHomeGoods("sell");
   },
+  // DOM 创建好之后再获取 refs ,否则可能会获取失败
+  mounted() {
+    // 3.监听 item 中图片加载完成
+    const refresh = debounce(this.$refs.scroll.refresh, 100);
+    this.$bus.$on("itemImageLoad", () => {
+      refresh();
+    });
+  },
   methods: {
-    /**
-     * 网络请求相关方法
-     */
-    getHomeMultidata() {
-      getHomeMultidata().then((res) => {
-        this.banners = res.data.banner.list;
-        this.recommends = res.data.recommend.list;
-      });
-    },
-    getHomeGoods(type) {
-      const page = this.goods[type].page + 1;
-      getHomeGoods(type, page).then((res) => {
-        this.goods[type].list.push(...res.data.list);
-        this.goods[type].page += 1;
-        this.$refs.scroll.finishPullUp();
-      });
-    },
-    contentScroll(position) {
-      this.isShowBackTop = -position.y > 1000;
-    },
     /**
      * 事件监听相关方法
      */
+    // 上拉加载更多,根据当前类型请求数据
+    loadMore() {
+      this.getHomeGoods(this.currentType)
+    },
+    // 点击 tabControl 切换当前显示的 goods 种类
     tabClick(index) {
       switch (index) {
         case 0:
@@ -121,12 +121,35 @@ export default {
           this.currentType = "sell";
       }
     },
+    // 点击 backTop 回到顶部
     backClick() {
       this.$refs.scroll.scrollTo(0, 0, 500);
     },
-    loadMore() {
-      this.getHomeGoods(this.currentType);
-      this.$refs.scroll.scroll.refresh();
+    // backTop 显示或隐藏的设置
+    contentScroll(position) {
+      this.isShowBackTop = -position.y > 1000;
+    },
+
+    /**
+     * 网络请求相关方法
+     */
+    // 请求页面中 轮播图 推荐列表 相关数据
+    getHomeMultidata() {
+      getHomeMultidata().then((res) => {
+        this.banners = res.data.banner.list;
+        this.recommends = res.data.recommend.list;
+      });
+    },
+    // 根据类型请求 goods 数据,每次都会请求下一页的数据
+    getHomeGoods(type) {
+      const page = this.goods[type].page + 1;
+      getHomeGoods(type, page).then((res) => {
+        this.goods[type].list.push(...res.data.list);
+        this.goods[type].page += 1;
+
+        // 完成上拉加载更多
+        this.$refs.scroll.finishPullUp()
+      });
     },
   },
 };
@@ -149,11 +172,11 @@ export default {
   z-index: 9;
 }
 
-.tab-control {
+/* .tab-control {
   position: sticky;
   top: 44px;
   z-index: 9;
-}
+} */
 
 .content {
   overflow: hidden;
