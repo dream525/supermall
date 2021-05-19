@@ -120,8 +120,8 @@ export default {
     // 所有的组件都有一个属性 : $el 用于获取组件中的元素的
   },
   activated() {
-    this.$refs.scroll.scrollTo(0, this.saveY, 0);
     this.$refs.scroll.refresh();
+    this.$refs.scroll.scrollTo(0, this.saveY, 0);
   },
   deactivated() {
     this.saveY = this.$refs.scroll.getScrollY();
@@ -192,28 +192,13 @@ export default {
 
 <style scoped>
 #home {
-  /* padding-top: 44px; */
   height: 100vh;
   position: relative;
 }
 .home-nav {
   background-color: var(--color-tint);
   color: #fff;
-  /* width: 100%; */
-
-  /* 在使用浏览器原生滚动时,为了让导航不跟随一起滚动 */
-  /* position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 9; */
 }
-
-/* .tab-control {
-  position: sticky;
-  top: 44px;
-  z-index: 9;
-} */
 
 .content {
   overflow: hidden;
@@ -228,10 +213,4 @@ export default {
   position: relative;
   z-index: 9;
 }
-
-/* .content {
-  height: calc(100% - 98px);
-  overflow: hidden;
-  margin-top: 44px;
-} */
 </style>
