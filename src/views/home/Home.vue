@@ -44,10 +44,9 @@ import NavBar from "components/common/navbar/NavBar";
 import TabControl from "components/content/tabControl/TabControl";
 import GoodsList from "components/content/goods/GoodsList";
 import Scroll from "components/common/scroll/Scroll";
-import BackTop from "components/content/backTop/BackTop";
 
 import { getHomeMultidata, getHomeGoods } from "network/home";
-import { debounce } from "common/utils";
+import { itemListenerMixin, backTopMixin } from "common/mixin";
 
 export default {
   name: "Home",
@@ -59,8 +58,8 @@ export default {
     TabControl,
     GoodsList,
     Scroll,
-    BackTop,
   },
+  mixins: [itemListenerMixin, backTopMixin],
   computed: {
     showGoods() {
       return this.goods[this.currentType].list;
@@ -89,14 +88,14 @@ export default {
       },
       // 保存当前显示的 goods 类型
       currentType: "pop",
-      // 保存当前状态 backTop 是否显示
-      isShowBackTop: false,
       // tabControl 的 offsetTop
       tabOffsetTop: 0,
       // tabcontrol 是否吸顶
       isTabFixed: false,
       // 保存scroll 滚动的距离
       saveY: 0,
+      // 保存事件总线处理函数
+      // itemImgLiatener: null,
     };
   },
   // 组件创建完成之后立即请求数据,将数据渲染到页面中
@@ -109,22 +108,28 @@ export default {
     this.getHomeGoods("sell");
   },
   // DOM 创建好之后再获取 refs ,否则可能会获取失败
-  mounted() {
-    // 3.监听 item 中图片加载完成
-    const refresh = debounce(this.$refs.scroll.refresh, 100);
-    this.$bus.$on("itemImageLoad", () => {
-      refresh();
-    });
+  // mounted() {
+  //   // 3.监听 item 中图片加载完成
+  //   const refresh = debounce(this.$refs.scroll.refresh, 100);
 
-    // 获取 tabControl 的 offsetTop
-    // 所有的组件都有一个属性 : $el 用于获取组件中的元素的
-  },
+  //   // 对监听的事件进行保存
+  //   this.itemImgLiatener = () => {
+  //     refresh();
+  //   };
+  //   this.$bus.$on("itemImageLoad", this.itemImgLiatener);
+
+  //   // 获取 tabControl 的 offsetTop
+  //   // 所有的组件都有一个属性 : $el 用于获取组件中的元素的
+  // },
   activated() {
     this.$refs.scroll.refresh();
     this.$refs.scroll.scrollTo(0, this.saveY, 0);
   },
   deactivated() {
+    // 保存 y 值
     this.saveY = this.$refs.scroll.getScrollY();
+    // 取消全局事件的监听
+    this.$bus.$off("itemImageLoad", this.itemImgLiatener);
   },
   methods: {
     /**
@@ -153,14 +158,10 @@ export default {
       this.$refs.tabControl1.currentIndex = index;
       this.$refs.tabControl2.currentIndex = index;
     },
-    // 点击 backTop 回到顶部
-    backClick() {
-      this.$refs.scroll.scrollTo(0, 0, 500);
-    },
     // backTop 显示或隐藏的设置 与 tabControl 的吸顶效果
     contentScroll(position) {
       // 判断 backTop 是否显示
-      this.isShowBackTop = -position.y > 1000;
+      this.listenShowBackTop(position);
       // 决定 tabControl 是否吸顶(position: fixed)
       this.isTabFixed = -position.y > this.tabOffsetTop;
     },

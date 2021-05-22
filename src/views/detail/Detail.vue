@@ -1,7 +1,16 @@
 <template>
   <div id="detail">
-    <detail-nav-bar class="detail-nav"></detail-nav-bar>
-    <scroll class="content" ref="scroll">
+    <detail-nav-bar
+      class="detail-nav"
+      @titleClick="titleClick"
+      ref="nav"
+    ></detail-nav-bar>
+    <scroll
+      class="content"
+      ref="scroll"
+      @scroll="contentScroll"
+      :probe-type="3"
+    >
       <detail-swiper :top-images="topImages"></detail-swiper>
       <detail-base-info :goods="goods"></detail-base-info>
       <detail-shop-info :shop="shop"></detail-shop-info>
@@ -9,8 +18,18 @@
         :detail-info="detailInfo"
         @imageLoad="imageLoad"
       ></detail-goods-info>
-      <detail-param-info :param-info="paramInfo"></detail-param-info>
+      <detail-param-info
+        :param-info="paramInfo"
+        ref="params"
+      ></detail-param-info>
+      <detail-comment-info
+        :comment-info="commentInfo"
+        ref="comment"
+      ></detail-comment-info>
+      <goods-list :goods="recommends" ref="recommend"></goods-list>
     </scroll>
+    <back-top @click.native="backClick" v-show="isShowBackTop"></back-top>
+    <detail-bottom-bar @addCart="addToCart"></detail-bottom-bar>
   </div>
 </template>
 
@@ -21,10 +40,21 @@ import DetailBaseInfo from "./childComps/DetailBaseInfo";
 import DetailShopInfo from "./childComps/DetailShopInfo";
 import DetailGoodsInfo from "./childComps/DetailGoodsInfo";
 import DetailParamInfo from "./childComps/DetailParamInfo";
+import DetailCommentInfo from "./childComps/DetailCommentInfo";
+import DetailBottomBar from "./childComps/DetailBottomBar";
 
+import GoodsList from "components/content/goods/GoodsList";
 import Scroll from "components/common/scroll/Scroll";
 
-import { getDetail, Goods, Shop, GoodsParam } from "network/detail";
+import {
+  getDetail,
+  Goods,
+  Shop,
+  GoodsParam,
+  getRecommend,
+} from "network/detail";
+import { itemListenerMixin, backTopMixin } from "common/mixin";
+import { debounce } from "common/utils";
 
 export default {
   name: "Detail",
@@ -36,7 +66,11 @@ export default {
     DetailGoodsInfo,
     Scroll,
     DetailParamInfo,
+    DetailCommentInfo,
+    GoodsList,
+    DetailBottomBar,
   },
+  mixins: [itemListenerMixin, backTopMixin],
   data() {
     return {
       iid: null,
@@ -45,6 +79,12 @@ export default {
       shop: {},
       detailInfo: {},
       paramInfo: {},
+      commentInfo: {},
+      recommends: [],
+      // itemImgListener: null,
+      themeTopYs: [],
+      getThemeTopY: null,
+      currentIndex: 0,
     };
   },
   created() {
@@ -75,11 +115,98 @@ export default {
         data.itemParams.info,
         data.itemParams.rule
       );
+
+      // 获取评论信息
+      if (data.rate.cRate !== 0) {
+        this.commentInfo = data.rate.list[0];
+      }
     });
+
+    // 请求推荐数据
+    getRecommend().then((res) => {
+      this.recommends = res.data.list;
+      // this.$nextTick(() => {
+      // 根据最新数据,对应的DOM是已经被渲染出来
+      // 但是图片依然没有加载完(目前获取到的 offsetTop 不包含其中的图片)
+      // offsetTop 值不对的时候，都是因为图片的问题
+      //   this.themeTopYs = [];
+      //   this.themeTopYs.push(0);
+      //   this.themeTopYs.push(this.$refs.params.$el.offsetTop-44);
+      //   this.themeTopYs.push(this.$refs.comment.$el.offsetTop-44);
+      //   this.themeTopYs.push(this.$refs.recommend.$el.offsetTop-44);
+      //   console.log(this.themeTopYs);
+      // });
+    });
+
+    // 给 getThemeTopY 赋值(对该操作进行防抖)
+    this.getThemeTopY = debounce(() => {
+      this.themeTopYs = [];
+      this.themeTopYs.push(0);
+      this.themeTopYs.push(this.$refs.params.$el.offsetTop - 44);
+      this.themeTopYs.push(this.$refs.comment.$el.offsetTop - 44);
+      this.themeTopYs.push(this.$refs.recommend.$el.offsetTop - 44);
+      // this.themeTopYs.push(Number.MAX_VALUE);
+    }, 50);
+  },
+  destroyed() {
+    this.$bus.$off("itemImageLoad", this.itemImgListener);
   },
   methods: {
+    addToCart() {
+      // 获取购物车需要展示的信息
+      const product = {};
+      product.image = this.topImages[0];
+      product.title = this.goods.title;
+      product.desc = this.goods.desc;
+      product.price = this.goods.realPrice;
+      product.iid = this.iid;
+      // 将商品添加到购物车里
+      this.$store.commit("addCart", product);
+      console.log(product);
+    },
+    titleClick(index) {
+      this.$refs.scroll.scrollTo(0, -this.themeTopYs[index], 500);
+    },
     imageLoad() {
-      this.$refs.scroll.refresh();
+      this.newRefresh();
+      this.getThemeTopY();
+    },
+    contentScroll(position) {
+      // 获取 y 值
+      const positionY = -position.y;
+
+      //  positionY 和主题中的值进行对比
+      let length = this.themeTopYs.length;
+      for (let i = 0; i < length; i++) {
+        // if (
+        //   this.currentIndex !== i &&
+        //   positionY >= this.themeTopYs[i] &&
+        //   positionY < this.themeTopYs[i + 1]
+        // ) {
+        //   this.currentIndex = i;
+        //   this.$refs.nav.currentIndex = this.currentIndex;
+        // }
+
+        if (this.currentIndex !== i) {
+          if (i === length - 1) {
+            if (positionY >= this.themeTopYs[i]) {
+              this.currentIndex = i;
+              this.$refs.nav.currentIndex = this.currentIndex;
+            }
+          } else {
+            if (
+              positionY >= this.themeTopYs[i] &&
+              positionY < this.themeTopYs[i + 1]
+            ) {
+              this.currentIndex = i;
+              this.$refs.nav.currentIndex = this.currentIndex;
+            }
+          }
+        }
+
+        // 是否显示回到顶部
+        this.listenShowBackTop(position);
+      }
     },
   },
 };
@@ -94,7 +221,7 @@ export default {
 }
 .content {
   overflow: hidden;
-  height: calc(100% - 44px);
+  height: calc(100% - 102px);
 }
 .detail-nav {
   position: relative;

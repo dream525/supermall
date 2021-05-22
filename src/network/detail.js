@@ -38,7 +38,13 @@ export class GoodsParam {
     // 此处 image 可能没有值(有些商品有值,有的没有)
     this.image = info.images ? info.images[0] : '';
     this.infos = info.set;
-    this.sezes = rule.tables;
+    this.sizes = rule.tables;
   }
+}
+
+export function getRecommend() {
+  return request({
+    url: "/recommend"
+  })
 }
 
