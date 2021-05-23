@@ -30,6 +30,7 @@
     </scroll>
     <back-top @click.native="backClick" v-show="isShowBackTop"></back-top>
     <detail-bottom-bar @addCart="addToCart"></detail-bottom-bar>
+    <!-- <toast :message="message" :show="show"></toast> -->
   </div>
 </template>
 
@@ -45,6 +46,7 @@ import DetailBottomBar from "./childComps/DetailBottomBar";
 
 import GoodsList from "components/content/goods/GoodsList";
 import Scroll from "components/common/scroll/Scroll";
+// import Toast from "components/common/toast/Toast";
 
 import {
   getDetail,
@@ -55,6 +57,8 @@ import {
 } from "network/detail";
 import { itemListenerMixin, backTopMixin } from "common/mixin";
 import { debounce } from "common/utils";
+
+import { mapActions } from "vuex";
 
 export default {
   name: "Detail",
@@ -69,6 +73,7 @@ export default {
     DetailCommentInfo,
     GoodsList,
     DetailBottomBar,
+    // Toast,
   },
   mixins: [itemListenerMixin, backTopMixin],
   data() {
@@ -85,6 +90,8 @@ export default {
       themeTopYs: [],
       getThemeTopY: null,
       currentIndex: 0,
+      // message:'',
+      // show:false,
     };
   },
   created() {
@@ -152,6 +159,7 @@ export default {
     this.$bus.$off("itemImageLoad", this.itemImgListener);
   },
   methods: {
+    ...mapActions(["addCart"]),
     addToCart() {
       // 获取购物车需要展示的信息
       const product = {};
@@ -161,8 +169,20 @@ export default {
       product.price = this.goods.realPrice;
       product.iid = this.iid;
       // 将商品添加到购物车里
-      this.$store.commit("addCart", product);
-      console.log(product);
+      // this.$store.commit("addCart", product);
+      // this.$store.dispatch("addCart", product).then((res) => {
+      //   console.log(res);
+      // });
+
+      this.addCart(product).then((res) => {
+        // this.show = true;
+        // this.message = res;
+        // setTimeout(() => {
+        //   this.show = false;
+        //   this.message = '';
+        // },1500)
+        this.$toast.show(res, 2000);
+      });
     },
     titleClick(index) {
       this.$refs.scroll.scrollTo(0, -this.themeTopYs[index], 500);

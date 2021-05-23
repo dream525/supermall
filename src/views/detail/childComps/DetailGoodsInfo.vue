@@ -16,7 +16,7 @@
     </div>
     <div class="goods_info_imgs">
       <img
-        :src="item"
+        v-lazy="item"
         alt=""
         v-for="(item, index) in detailInfo.detailImage[0].list"
         :key="index"
